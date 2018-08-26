@@ -109,10 +109,7 @@ class DocumentList extends React.Component {
 }
 
 @observer
-class DocumentDetail extends React.Component<
-  Router.RouteComponentProps<any>,
-  {}
-> {
+class DocumentDetail extends React.Component {
   render() {
     if (rootStore.documentStore.selectedDocument) {
       return (
@@ -143,7 +140,7 @@ class App extends React.Component {
               path="/documents/:documentId"
               component={(props: Router.RouteComponentProps<any>) => (
                 <RouterWrapper {...props} rootStore={rootStore}>
-                  <DocumentDetail {...props} />
+                  <DocumentDetail />
                 </RouterWrapper>
               )}
             />
