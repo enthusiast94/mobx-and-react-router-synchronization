@@ -2,6 +2,7 @@ import * as React from "react";
 import { observable, reaction, action } from "mobx";
 import * as Router from "react-router-dom";
 import { observer } from "mobx-react";
+import DevTools from 'mobx-react-devtools';
 
 class RootStore {
   @observable
@@ -134,6 +135,7 @@ class App extends React.Component {
   public render() {
     return (
       <div style={styles.root}>
+        <DevTools />
         <Router.HashRouter>
           <Router.Switch>
             <Router.Route
