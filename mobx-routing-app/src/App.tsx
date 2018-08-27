@@ -1,10 +1,10 @@
 import * as React from "react";
-import { observable, reaction, action } from "mobx";
+import { observable, reaction, action, runInAction } from "mobx";
 import * as Router from "react-router-dom";
 import { observer } from "mobx-react";
-import DevTools from 'mobx-react-devtools';
+import DevTools from "mobx-react-devtools";
 
-class RootStore {
+export class RootStore {
   @observable
   hash: string;
 
@@ -24,17 +24,23 @@ class RootStore {
   }
 }
 
-interface Document {
+export interface Document {
   id: string;
   name: string;
 }
 
-class DocumentStore {
+export interface AsyncResource<T> {
+  value?: T;
+  isLoading: boolean;
+  error?: string;
+}
+
+export class DocumentStore {
   @observable
   documentsIds = ["one", "two", "three", "four", "five", "six"];
 
   @observable
-  selectedDocument: Document;
+  selectedDocument: AsyncResource<Document>;
 
   constructor(store: RootStore) {
     reaction(
@@ -43,20 +49,35 @@ class DocumentStore {
         if (store.match.params.documentId) {
           if (
             this.selectedDocument &&
-            this.selectedDocument.id === store.match.params.documentId
+            this.selectedDocument.value &&
+            this.selectedDocument.value.id === store.match.params.documentId
           ) {
             return;
           }
 
-          this.loadDocuent(store.match.params.documentId);
+          this.loadDocument(store.match.params.documentId);
         }
       }
     );
   }
 
   @action
-  loadDocuent(documentId: string) {
-    this.selectedDocument = { id: documentId, name: "Document " + documentId };
+  loadDocument(documentId: string) {
+    this.selectedDocument = { isLoading: true };
+    setTimeout(
+      () =>
+        runInAction(() => {
+          this.selectedDocument = {
+            error: "hey",
+            isLoading: false,
+            value: {
+              id: documentId,
+              name: "Document " + documentId
+            }
+          };
+        }),
+      300
+    );
   }
 }
 
@@ -64,7 +85,7 @@ interface RouterWrapperProps {
   rootStore: RootStore;
 }
 
-class RouterWrapper extends React.Component<
+export class RouterWrapper extends React.Component<
   RouterWrapperProps & Router.RouteComponentProps<any> & React.ReactNode,
   {}
 > {
@@ -91,14 +112,18 @@ class RouterWrapper extends React.Component<
 
 const rootStore = new RootStore();
 
+interface DocumentListProps {
+  documentStore: DocumentStore;
+}
+
 @observer
-class DocumentList extends React.Component {
+export class DocumentList extends React.Component<DocumentListProps, {}> {
   render() {
     return (
       <div>
         <h2>Document List</h2>
         <ul>
-          {rootStore.documentStore.documentsIds.map(id => (
+          {this.props.documentStore.documentsIds.map(id => (
             <li key={id}>
               <Router.Link to={"/documents/" + id}>{id}</Router.Link>
             </li>
@@ -109,19 +134,30 @@ class DocumentList extends React.Component {
   }
 }
 
+interface DocumentDetailProps {
+  documentStore: DocumentStore;
+}
+
 @observer
-class DocumentDetail extends React.Component {
+export class DocumentDetail extends React.Component<DocumentDetailProps, {}> {
   render() {
-    if (rootStore.documentStore.selectedDocument) {
-      return (
-        <div>
-          <h2>{rootStore.documentStore.selectedDocument.name}</h2>
-          <Router.Link to="/documents">Back to list</Router.Link>          
-        </div>
-      );
-    } else {
-      return null;
+    const store = this.props.documentStore;
+    if (store.selectedDocument) {
+      if (store.selectedDocument.isLoading) {
+        return <div>Loading...</div>;
+      } else if (store.selectedDocument.error) {
+        return <div>{"Error: " + store.selectedDocument.error}</div>;
+      } else if (store.selectedDocument.value) {
+        return (
+          <div>
+            <h2>{store.selectedDocument.value.name}</h2>
+            <Router.Link to="/documents">Back to list</Router.Link>
+          </div>
+        );
+      }
     }
+
+    return null;
   }
 }
 
@@ -131,35 +167,31 @@ const styles = {
   }
 };
 
-class App extends React.Component {
+export class App extends React.Component {
   public render() {
     return (
       <div style={styles.root}>
         <DevTools />
-        <Router.HashRouter>
-          <Router.Switch>
-            <Router.Route
-              path="/documents/:documentId"
-              component={(props: Router.RouteComponentProps<any>) => (
-                <RouterWrapper {...props} rootStore={rootStore}>
-                  <DocumentDetail />
-                </RouterWrapper>
-              )}
-            />
-            <Router.Route
-              path="/documents"
-              component={(props: Router.RouteComponentProps<any>) => (
-                <RouterWrapper {...props} rootStore={rootStore}>
-                  <DocumentList />
-                </RouterWrapper>
-              )}
-            />
-            <Router.Redirect to={"/documents"} />
-          </Router.Switch>
-        </Router.HashRouter>
+        <Router.Switch>
+          <Router.Route
+            path="/documents/:documentId"
+            component={(props: Router.RouteComponentProps<any>) => (
+              <RouterWrapper {...props} rootStore={rootStore}>
+                <DocumentDetail documentStore={rootStore.documentStore} />
+              </RouterWrapper>
+            )}
+          />
+          <Router.Route
+            path="/documents"
+            component={(props: Router.RouteComponentProps<any>) => (
+              <RouterWrapper {...props} rootStore={rootStore}>
+                <DocumentList documentStore={rootStore.documentStore} />
+              </RouterWrapper>
+            )}
+          />
+          <Router.Redirect to={"/documents"} />
+        </Router.Switch>
       </div>
     );
   }
 }
-
-export default App;
